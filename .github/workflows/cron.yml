@@ -24,8 +24,9 @@ jobs:
 
       - name: Esegui lo script Tracker
         env:
-          # Qui collega la variabile d'ambiente al "Secret" di GitHub
-          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          - name: Esegui lo script Tracker
+        env:
+          SCRAPING_ROBOT_KEY: ${{ secrets.SCRAPING_ROBOT_KEY }} # Aggiornato!
         run: node tracker.js
 
       - name: Salva i nuovi dati (Commit e Push)
