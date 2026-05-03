@@ -1,0 +1,37 @@
+name: SEO Rank Tracker Cron
+
+on:
+  schedule:
+    # Imposta qui la frequenza (sintassi Cron). 
+    # Esegue lo script solo il Lunedì alle 02:00
+- cron: '0 2 * * 1'
+  workflow_dispatch: # Questo ti permette di avviarlo anche manualmente dal sito di GitHub con un click
+
+permissions:
+  contents: write
+
+jobs:
+  track-seo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clona il repository
+        uses: actions/checkout@v3
+
+      - name: Installa Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Esegui lo script Tracker
+        env:
+          # Qui collega la variabile d'ambiente al "Secret" di GitHub
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        run: node tracker.js
+
+      - name: Salva i nuovi dati (Commit e Push)
+        run: |
+          git config --global user.name "SEO Tracker Bot"
+          git config --global user.email "bot@tuodominio.com"
+          git add data.json
+          git commit -m "Aggiornamento posizioni SEO" || echo "Nessuna modifica"
+          git push
