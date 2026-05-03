@@ -11,28 +11,46 @@
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h1, h2, h3 { margin-top: 0; }
         input, button { padding: 8px 12px; margin: 5px 0; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; }
-        input[type="text"] { width: calc(100% - 26px); max-width: 300px; }
+        input[type="text"], input[type="password"] { width: calc(100% - 26px); max-width: 300px; }
         button { background-color: var(--primary); color: white; border: none; cursor: pointer; transition: 0.2s; }
         button:hover { background-color: #1d4ed8; }
         button.danger { background-color: #ef4444; }
-        button.danger:hover { background-color: #b91c1c; }
         button.success { background-color: #10b981; }
+        button.live-btn { background-color: #8b5cf6; font-size: 16px; font-weight: bold; padding: 10px 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
         th { background-color: #f1f5f9; }
         .flex-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .domain-section { border: 1px solid var(--border); padding: 15px; border-radius: 6px; margin-bottom: 15px; }
-        #jsonOutput { width: 100%; height: 100px; font-family: monospace; font-size: 12px; margin-top: 10px; padding: 10px; box-sizing: border-box; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; }
-        .alert { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #ffeeba; }
+        #jsonOutput { width: 100%; height: 80px; font-family: monospace; font-size: 12px; margin-top: 10px; padding: 10px; box-sizing: border-box; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; }
+        .settings-panel { background: #f8fafc; padding: 15px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Dashboard SEO</h1>
-    
-    <div class="alert">
-        <strong>Come funziona ora:</strong> Il controllo viene eseguito in automatico da GitHub ogni notte. L'API Key è al sicuro nei Secret. Usa i pannelli qui sotto per gestire le keyword.
+
+    <!-- Avvio Manuale da remoto -->
+    <div class="card" style="border-left: 5px solid #8b5cf6;">
+        <div class="flex-row" style="justify-content: space-between;">
+            <div>
+                <h2 style="margin:0; color: #8b5cf6;">Controllo Live</h2>
+                <p style="font-size: 13px; color: #666; margin-top:5px;">Avvia lo script su GitHub direttamente da qui.</p>
+            </div>
+            <button class="live-btn" onclick="triggerGitHubAction()">🚀 Avvia Controllo Ora</button>
+        </div>
+        
+        <details style="margin-top: 15px; font-size: 13px; cursor: pointer;">
+            <summary style="color: #2563eb;">⚙️ Impostazioni connessione GitHub (Richiesto per il bottone Live)</summary>
+            <div class="settings-panel" style="margin-top: 10px;">
+                <label>GitHub Token:</label><br>
+                <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxxxxx"><br>
+                <label>Nome Repository (es. mariorossi/seo-tracker):</label><br>
+                <input type="text" id="ghRepo" placeholder="tuo-utente/tuo-repo"><br>
+                <button onclick="saveGitHubSettings()" style="margin-top: 10px;">Salva nel Browser</button>
+            </div>
+        </details>
     </div>
 
     <!-- Gestione Domini e Keyword -->
@@ -45,11 +63,9 @@
         <div id="domainsContainer" style="margin-top: 20px;"></div>
         
         <div style="margin-top: 20px; border-top: 1px dashed #ccc; padding-top: 15px;">
-            <h3 style="color: #d97706;">⚠️ Applica le modifiche</h3>
-            <p style="font-size: 13px;">Se hai aggiunto o rimosso keyword, copia il codice qui sotto e incollalo nel file <code>data.json</code> su GitHub per rendere effettive le modifiche.</p>
+            <p style="font-size: 13px; color: #d97706;">⚠️ <strong>Hai modificato le keyword?</strong> Copia il codice qui sotto e incollalo nel file <code>data.json</code> su GitHub per rendere effettive le modifiche.</p>
             <textarea id="jsonOutput" readonly></textarea>
-            <button class="success" onclick="copyJson()">Copia Codice</button>
-            <span id="copyConfirm" style="color: green; font-size: 13px; display: none;">Copiato!</span>
+            <button class="success" onclick="copyJson()">Copia Codice JSON</button>
         </div>
     </div>
 
@@ -66,8 +82,11 @@
 <script>
     let appData = { domains: [] };
 
-    // Inizializzazione: carica i dati dal server
+    // --- INIZIALIZZAZIONE ---
     async function init() {
+        document.getElementById('ghToken').value = localStorage.getItem('ghToken') || '';
+        document.getElementById('ghRepo').value = localStorage.getItem('ghRepo') || '';
+
         try {
             const response = await fetch('data.json?t=' + new Date().getTime());
             if (response.ok) {
@@ -79,6 +98,47 @@
         renderDomains();
         renderResults();
         updateJsonOutput();
+    }
+
+    // --- GESTIONE IMPOSTAZIONI GITHUB (Per bottone live) ---
+    function saveGitHubSettings() {
+        localStorage.setItem('ghToken', document.getElementById('ghToken').value.trim());
+        localStorage.setItem('ghRepo', document.getElementById('ghRepo').value.trim());
+        alert("Impostazioni salvate nel browser!");
+    }
+
+    async function triggerGitHubAction() {
+        const token = localStorage.getItem('ghToken');
+        const repo = localStorage.getItem('ghRepo');
+
+        if (!token || !repo) {
+            alert("Devi prima inserire il Token e il Nome Repository nelle impostazioni (⚙️).");
+            return;
+        }
+
+        if(!confirm("Vuoi avviare il controllo ora? Ci vorranno un paio di minuti per completare l'operazione su GitHub.")) return;
+
+        try {
+            // Assumiamo che il file workflow si chiami 'cron.yml'
+            const response = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/cron.yml/dispatches`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ref: 'main' }) // Cambia in 'master' se il tuo branch principale si chiama master
+            });
+
+            if (response.status === 204) {
+                alert("✅ Controllo avviato con successo! Il server sta lavorando. Ricarica questa pagina tra circa 2-3 minuti per vedere i nuovi risultati.");
+            } else {
+                const errorData = await response.json();
+                alert(`❌ Errore nell'avvio: ${errorData.message}`);
+            }
+        } catch (error) {
+            alert("Errore di rete nell'avvio dell'azione.");
+        }
     }
 
     // --- GESTIONE DOMINI E KEYWORD ---
@@ -140,7 +200,6 @@
         });
     }
 
-    // --- AGGIORNAMENTO JSON E COPIA ---
     function updateJsonOutput() {
         document.getElementById('jsonOutput').value = JSON.stringify(appData, null, 2);
     }
@@ -149,28 +208,21 @@
         const copyText = document.getElementById("jsonOutput");
         copyText.select();
         document.execCommand("copy");
-        const confirmMsg = document.getElementById("copyConfirm");
-        confirmMsg.style.display = "inline";
-        setTimeout(() => confirmMsg.style.display = "none", 2000);
+        alert("Codice copiato! Ora incollalo in data.json su GitHub.");
     }
 
     // --- RENDERIZZAZIONE RISULTATI ---
     function renderResults() {
         const container = document.getElementById('resultsContainer');
         container.innerHTML = '';
-        
         if(appData.domains.length === 0) {
-            container.innerHTML = "<p>Nessun dato da mostrare. Aggiungi un dominio e aspetta il primo controllo.</p>";
-            return;
+            container.innerHTML = "<p>Nessun dato da mostrare. Aggiungi un dominio e aspetta il primo controllo.</p>"; return;
         }
 
         appData.domains.forEach(domain => {
             if (!domain.history || domain.history.length === 0) {
-                container.innerHTML += `<h3>${domain.name}</h3><p style="color:#666; font-size:13px;">Controllo in attesa...</p><br>`;
-                return;
+                container.innerHTML += `<h3>${domain.name}</h3><p style="color:#666; font-size:13px;">Controllo in attesa...</p><br>`; return;
             }
-            
-            // Mostriamo solo le righe più recenti o invertiamo lo storico
             let rows = [...domain.history].reverse().map(h => `
                 <tr>
                     <td>${h.date}</td>
@@ -184,11 +236,7 @@
 
             container.innerHTML += `
                 <h3>Storico: ${domain.name}</h3>
-                <table>
-                    <thead><tr><th>Data</th><th>Keyword</th><th>Posizione</th><th>URL</th></tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>
-                <br>
+                <table><thead><tr><th>Data</th><th>Keyword</th><th>Posizione</th><th>URL</th></tr></thead><tbody>${rows}</tbody></table><br>
             `;
         });
     }
@@ -214,7 +262,6 @@
         document.body.removeChild(link);
     }
 
-    // Avvia l'app all'apertura
     init();
 </script>
 
